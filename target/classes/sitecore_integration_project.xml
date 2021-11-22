@@ -1,0 +1,227 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:mongo="http://www.mulesoft.org/schema/mule/mongo" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/mongo http://www.mulesoft.org/schema/mule/mongo/current/mule-mongo.xsd">
+	<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" doc:id="57106a92-c678-43dc-9f90-90f9e0b1daaa" >
+		<http:listener-connection host="0.0.0.0" port="8081" />
+	</http:listener-config>
+	<mongo:config name="MongoDB_Config" doc:name="MongoDB Config" doc:id="6cb3d421-37f2-4a44-828d-4ebff554efc3" >
+		<mongo:connection-string-connection connectionString="mongodb+srv://Njclabs:Njclabs@cluster0.en2fl.mongodb.net/test" />
+	</mongo:config>
+	<flow name="retrieve-all" doc:id="121b3fbb-2422-4b0b-a2e1-fb4f81e7c675" >
+		<http:listener doc:name="Listener" doc:id="d05b4c63-4fdf-4b3b-a571-7bae28d2a7a8" config-ref="HTTP_Listener_config" path="/search" />
+		<set-variable value="#[[]]" doc:name="data" doc:id="55cd1400-b9f6-44ba-8136-381f62a414a5" variableName="data" />
+		<set-variable value='#[if ( payload.skip !=null and payload.skip != "") payload.skip else 1]' doc:name="skip" doc:id="3494bd1e-ab3b-4c21-a0af-d3a7218405fc" variableName="skip" />
+		<set-variable value='#[if ( payload.take !=null and payload.take != "") payload.take else 200]' doc:name="take" doc:id="c48d5d24-af3f-477b-8199-4ea07e6c4126" variableName="take" />
+		<set-variable value="#[[]]" doc:name="assetdata" doc:id="d19cfd89-606d-4841-8d03-f5f529d7a121" variableName="assetdata" />
+		<set-variable value='#[if ( payload.filters.values[0][0] !=null and payload.filters.values[0][0] != "") payload.filters.values[0][0] else "1900-01-01T00:00:00+00:00"]' doc:name="updatedtime" doc:id="04c8af91-b24d-4e49-9642-276403760030" variableName="updatedtime" />
+		<set-payload value="#[[1,201,401,601,801,1001,1201,1401,1601,1801]]" doc:name="Payload" doc:id="9466409e-2cf2-4e0d-8a81-1ffd662a39f2" />
+		<foreach doc:name="For Each" doc:id="c58e8d51-40c8-4bc3-9ed6-549fde29f8b8" collection="#[payload]" >
+			<ee:transform doc:name="Transform Message" doc:id="9ca42c28-69d4-415f-93ab-87c55bf80104" >
+				<ee:message >
+					<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+
+	"counter": { "\$gte":payload as Number}
+]]></ee:set-payload>
+				</ee:message>
+			</ee:transform>
+			<mongo:find-documents collectionName="njcAssets" fields="," doc:id="633fe9b5-2bf3-4ed7-9119-05a898cf3a86" config-ref="MongoDB_Config" limit="200" doc:name="Find documents" >
+				<mongo:query ><![CDATA[#[payload]]]></mongo:query>
+			</mongo:find-documents>
+			<ee:transform doc:name="Transform Message" doc:id="7f75f48f-901a-4382-92d6-4763d9500c8b" >
+				<ee:message />
+				<ee:variables >
+					<ee:set-variable variableName="data" ><![CDATA[%dw 2.0
+output application/json
+---
+vars.data ++ payload]]></ee:set-variable>
+				</ee:variables>
+			</ee:transform>
+		</foreach>
+		<ee:transform doc:name="Transform Message" doc:id="e297d17c-41c3-4360-9bec-6e34c017e764" >
+			<ee:message />
+			<ee:variables >
+				<ee:set-variable variableName="data" ><![CDATA[%dw 2.0
+output application/json
+---
+vars.data map ((item, index) -> item - "_id" - "counter")]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<ee:transform doc:name="Transform Message" doc:id="3d3a204e-5028-4506-98f3-e68be1db260b" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+    "query": "OAAAAB-LCAAAAAAABAAzOLz90GpD08Pbc_NTMtMyU1Pi8_MObzc-vN1QHwgtDQwUDI2sDAyASMHRV0EbzDq0-_B0AKrWwUY4AAAA0",
+    "skip": vars.skip,
+    "take": vars.take,
+    "totalItemCount": 2000,
+    "returnedItemCount": vars.take,
+    "sorting": {
+        "name": "modifiedon",
+        "labels": {},
+        "asc": false
+    },
+    "sortingOptions": [],
+    "filters": [
+        {
+            "name": "modified_on",
+            "label": "Date modified",
+            "type": "datetimeoffset",
+            "values": [
+                {
+                    "value": vars.updatedtime,
+                    "label": null
+                }
+            ],
+            "nested_values": [],
+            "definition": null,
+            "operator": "GreaterThan",
+            "removeQuery": "",
+            "dynamic": false,
+            "nested": false,
+            "visible": true,
+            "multi_select": false
+        }
+    ],
+    "fulltext": [],
+    "facets": [],
+    "items":vars.data,
+     "aggregations": null,
+    "grouped_items": []
+}
+    ]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+	<flow name="sitecore_integration_projectFlow" doc:id="19e402d3-1943-43bf-9bfe-9c2dad58dc5f" >
+		<http:listener doc:name="Listener" doc:id="7f1e424c-e820-4c5e-90ce-3fc7772b95cb" config-ref="HTTP_Listener_config" path="/entities/{assetid}"/>
+		<ee:transform doc:name="Transform Message" doc:id="0d1be2d0-5606-419e-bea0-67d64892a949" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{"assetid": attributes.uriParams.assetid as Number}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<mongo:find-documents collectionName="njcassetid" fields="," doc:name="Find documents" doc:id="e04b9fbd-9fc2-4e81-b6ec-ba7926e6b1fd" config-ref="MongoDB_Config">
+			<mongo:query ><![CDATA[#[{"id": payload.assetid}]]]></mongo:query>
+		</mongo:find-documents>
+		<ee:transform doc:name="Transform Message" doc:id="981bd961-4bdd-4ae2-985e-dc533c1f2886" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload map ((item, index) -> item - "_id" )]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<ee:transform doc:name="Transform Message" doc:id="5e95eb96-a679-430d-8bca-886e458513f4" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload reduce((val, acc) -> val ++ acc)]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+	<flow name="retrieve-hrefid-assetbyprofile" doc:id="d121f726-416f-4d1e-b239-0e512ac5f50f" >
+		<http:listener doc:name="Listener" doc:id="6a5b8c68-18ae-427f-af0d-31c369561e2e" config-ref="HTTP_Listener_config" path="/hrefentities/{assetid}" />
+		<ee:transform doc:name="Transform Message" doc:id="5fd6a961-aa83-4780-9fd2-4d4d6177dfe6" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{"assetid": attributes.uriParams.assetid as Number}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<mongo:find-documents collectionName="hrefid" fields="," doc:name="Find documents" doc:id="22422212-0184-4d42-9fac-365ba48b8586" config-ref="MongoDB_Config" limit="200" >
+			<mongo:query ><![CDATA[#[{"id":payload.assetid}]]]></mongo:query>
+		</mongo:find-documents>
+		<ee:transform doc:name="Transform Message" doc:id="155c5a1c-d026-4eb4-afe2-f37124b2a7ca" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload map ((item, index) -> item - "_id" - "counter")]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<ee:transform doc:name="Transform Message" doc:id="a53e9427-617e-4705-91c9-dadeb7f14c30" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload reduce((val, acc) -> val ++ acc)]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+	<flow name="retrieve-createdby-assetbyprofile" doc:id="c1d6d663-afee-46cb-9820-3ae67803334f" >
+		<http:listener doc:name="Listener" doc:id="14339089-0ab8-4b89-82dc-74df8bd2ed1b" config-ref="HTTP_Listener_config" path="/createdby/{assetid}" />
+		<ee:transform doc:name="Transform Message" doc:id="e55d8e31-eb53-4ca3-8b01-2a6997a1452d" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{"assetid": attributes.uriParams.assetid as Number}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<mongo:find-documents collectionName="createdid" fields="," doc:name="Find documents" doc:id="673bf19b-0c1f-41c8-b6bd-6d4afeceb11e" config-ref="MongoDB_Config" limit="200" >
+			<mongo:query ><![CDATA[#[{"id":payload.assetid}]]]></mongo:query>
+		</mongo:find-documents>
+		<ee:transform doc:name="Transform Message" doc:id="9635d425-980f-4016-ad61-3c148d37d569" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload map ((item, index) -> item - "_id" - "counter")]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<ee:transform doc:name="Transform Message" doc:id="2215986a-bd07-415b-9571-46dfebdb12be" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload reduce((val, acc) -> val ++ acc)]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+	<flow name="retrieve-modifiedby-assetbyprofile" doc:id="92194202-6c0e-4c14-b721-4764a4f5e794" >
+		<http:listener doc:name="Listener" doc:id="c55f83fe-9aa9-47a5-a6a3-ad8da2141f0b" config-ref="HTTP_Listener_config" path="/modifiedby/{assetid}" />
+		<ee:transform doc:name="Transform Message" doc:id="48a7e659-ca86-421f-9e11-715247ed5080" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{"assetid": attributes.uriParams.assetid as Number}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<mongo:find-documents collectionName="modifiedid" fields="," doc:name="Find documents" doc:id="23e4fd00-6e26-4eb5-b235-02ba9f0f343f" config-ref="MongoDB_Config" limit="200" >
+			<mongo:query ><![CDATA[#[{"id":payload.assetid}]]]></mongo:query>
+		</mongo:find-documents>
+		<ee:transform doc:name="Transform Message" doc:id="8d192c32-a0d4-4054-85ac-ef68f2e50963" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload map ((item, index) -> item - "_id" - "counter")]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<ee:transform doc:name="Transform Message" doc:id="689c0490-d0cb-463f-862c-0bfd2f7162c1" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload reduce((val, acc) -> val ++ acc)]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+	<flow name="sitecore_integration_projectFlow1" doc:id="2613c2df-6635-4ead-84cf-d493b772493a" >
+		<http:listener doc:name="Listener" doc:id="40141e60-2ee8-4735-9491-45e2be33b74c" config-ref="HTTP_Listener_config"/>
+	</flow>
+</mule>
